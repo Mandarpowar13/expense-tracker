@@ -6,12 +6,14 @@ const dns = require('dns');
 const authRoutes = require('./routes/authRoutes.js');
 const expenseRoutes = require('./routes/expenseRoutes');
 const budgetRoutes = require('./routes/budgetRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 
 
 dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
+global.__serverStartedAt = Date.now();
 
 const app = express();
 
@@ -21,6 +23,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/budget', budgetRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
   res.send('Expense Tracker API is running!');

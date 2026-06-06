@@ -40,6 +40,18 @@ const formatShortDate = (dateStr) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 };
 
+const formatMoney = (value) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+
+const formatDateTime = (date) => {
+  if (!date) return 'No date';
+  return new Date(date).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 // ─── Custom Tooltip for Bar Chart ────────────────────────────────────────────
 const BarTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -62,6 +74,273 @@ const PieTooltip = ({ active, payload }) => {
     </div>
   );
 };
+
+function AdminLogin({ onBack, onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.message || 'Admin login failed');
+        return;
+      }
+
+      onLogin(data);
+    } catch (error) {
+      setMessage('Unable to connect to admin service');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="app auth-page admin-auth-page">
+      <div className="auth-shell admin-auth-shell">
+        <section className="auth-intro admin-auth-intro">
+          <span className="eyebrow">Admin Console</span>
+          <h1>Operate the tracker from one control room.</h1>
+          <p>Review app data, watch system health, and understand how users are spending across the platform.</p>
+        </section>
+
+        <section className="auth-card">
+          <h2>Admin login</h2>
+          <p>Use the server admin credentials configured in your environment.</p>
+          {message && <div className="inline-alert">{message}</div>}
+          <form onSubmit={handleSubmit}>
+            <input
+              type="email"
+              placeholder="Admin email"
+              value={email}
+              onChange={event => setEmail(event.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Admin password"
+              value={password}
+              onChange={event => setPassword(event.target.value)}
+              required
+            />
+            <button type="submit" disabled={busy}>{busy ? 'Checking...' : 'Login as Admin'}</button>
+          </form>
+          <button className="link-button" type="button" onClick={onBack}>Back to user login</button>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function AdminDashboard({ admin, token, onLogout }) {
+  const [overview, setOverview] = useState(null);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const adminHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+
+  const fetchOverview = async () => {
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/admin/overview`, { headers: adminHeaders });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.message || 'Unable to load admin data');
+        return;
+      }
+
+      setOverview(data);
+    } catch (error) {
+      setMessage('Unable to connect to admin service');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverview();
+  }, []);
+
+  const maxActivity = Math.max(...(overview?.dailyActivity || []).map(day => day.count), 1);
+  const maxCategory = Math.max(...(overview?.categoryWise || []).map(category => category.totalSpent), 1);
+
+  return (
+    <div className="app dashboard-page admin-page">
+      <main className="dashboard admin-dashboard">
+        <header className="dashboard-header admin-header">
+          <div>
+            <span className="eyebrow">Admin Console</span>
+            <h1>App Operations</h1>
+            <p>Signed in as {admin?.email}. Monitoring app data and performance.</p>
+          </div>
+          <div className="admin-header-actions">
+            <button className="small-button" onClick={fetchOverview} disabled={loading}>
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button className="secondary-button" onClick={onLogout}>Logout</button>
+          </div>
+        </header>
+
+        {message && <div className="toast">{message}</div>}
+
+        {!overview ? (
+          <div className="analytics-loading">
+            <div className="spinner" />
+            <p>Loading admin dashboard...</p>
+          </div>
+        ) : (
+          <>
+            <section className="admin-hero hero-panel">
+              <div>
+                <p className="section-label">System status</p>
+                <h2>{overview.health.status}</h2>
+                <p>Database is {overview.health.database}. Uptime is {Math.floor(overview.health.uptimeSeconds / 60)} minutes.</p>
+              </div>
+              <div className="health-stack">
+                <span>{overview.health.nodeEnv}</span>
+                <strong>{formatDateTime(overview.generatedAt)}</strong>
+              </div>
+            </section>
+
+            <section className="analytics-summary">
+              <div className="an-card">
+                <p>Users</p>
+                <h3>{overview.totals.users}</h3>
+              </div>
+              <div className="an-card">
+                <p>Expenses</p>
+                <h3>{overview.totals.expenses}</h3>
+              </div>
+              <div className="an-card">
+                <p>This Month</p>
+                <h3>{formatMoney(overview.totals.monthSpend)}</h3>
+              </div>
+              <div className="an-card">
+                <p>All-time Spend</p>
+                <h3>{formatMoney(overview.totals.allTimeSpend)}</h3>
+              </div>
+            </section>
+
+            <section className="charts-row">
+              <div className="chart-panel">
+                <h3>Category Spend</h3>
+                <div className="cat-table">
+                  {overview.categoryWise.length === 0 ? (
+                    <p className="muted-copy">No category spending this month.</p>
+                  ) : overview.categoryWise.map(category => {
+                    const color = CATEGORY_COLORS[category.category] || '#94a3b8';
+                    const width = Math.round((category.totalSpent / maxCategory) * 100);
+
+                    return (
+                      <div key={category.category} className="cat-row">
+                        <div className="cat-dot" style={{ background: color }} />
+                        <div className="cat-info">
+                          <div className="cat-top">
+                            <span className="cat-name">{category.category}</span>
+                            <span className="cat-amt">{formatMoney(category.totalSpent)}</span>
+                          </div>
+                          <div className="cat-bar-track">
+                            <div className="cat-bar-fill" style={{ width: `${width}%`, background: color }} />
+                          </div>
+                        </div>
+                        <span className="cat-count">{category.count} items</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="chart-panel">
+                <h3>Activity This Month</h3>
+                <div className="admin-bars">
+                  {overview.dailyActivity.length === 0 ? (
+                    <p className="muted-copy">No activity recorded this month.</p>
+                  ) : overview.dailyActivity.map(day => (
+                    <div className="admin-bar-row" key={day.date}>
+                      <span>{formatShortDate(day.date)}</span>
+                      <div>
+                        <i style={{ width: `${Math.max((day.count / maxActivity) * 100, 6)}%` }} />
+                      </div>
+                      <strong>{day.count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="charts-row">
+              <div className="chart-panel">
+                <h3>Top Users This Month</h3>
+                <div className="admin-list">
+                  {overview.topUsers.length === 0 ? (
+                    <p className="muted-copy">No spending leaders yet.</p>
+                  ) : overview.topUsers.map(user => (
+                    <div className="admin-list-row" key={user.userId}>
+                      <div>
+                        <strong>{user.name || 'Unknown user'}</strong>
+                        <span>{user.email || 'No email'}</span>
+                      </div>
+                      <p>{formatMoney(user.totalSpent)} · {user.expenses} expenses</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="chart-panel">
+                <h3>Recent Users</h3>
+                <div className="admin-list">
+                  {overview.recentUsers.map(user => (
+                    <div className="admin-list-row" key={user._id}>
+                      <div>
+                        <strong>{user.name}</strong>
+                        <span>{user.email}</span>
+                      </div>
+                      <p>{formatDateTime(user.createdAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="chart-panel">
+              <h3>Recent Expenses</h3>
+              <div className="admin-expense-table">
+                {overview.recentExpenses.length === 0 ? (
+                  <p className="muted-copy">No expenses have been created.</p>
+                ) : overview.recentExpenses.map(expense => (
+                  <div className="admin-expense-row" key={expense.id}>
+                    <strong>{formatMoney(expense.amount)}</strong>
+                    <div>
+                      <span>{expense.title}</span>
+                      <p>{expense.category} · {formatDate(expense.date)}</p>
+                    </div>
+                    <em>{expense.user?.name || 'Unknown user'}</em>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
 
 // ─── Analytics View ───────────────────────────────────────────────────────────
 function AnalyticsView({ token, authHeaders }) {
@@ -292,6 +571,15 @@ function App() {
   const [isBusy, setIsBusy] = useState(false);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'analytics'
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+
+  const [adminSession, setAdminSession] = useState(() => {
+    const savedAdmin = localStorage.getItem('admin');
+    const savedToken = localStorage.getItem('adminToken');
+    return savedAdmin && savedToken
+      ? { admin: JSON.parse(savedAdmin), token: savedToken }
+      : null;
+  });
 
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user');
@@ -438,9 +726,41 @@ function App() {
     localStorage.removeItem('user'); localStorage.removeItem('token');
   };
 
+  const handleAdminLogin = (data) => {
+    setAdminSession({ admin: data.admin, token: data.token });
+    setShowAdminLogin(false);
+    localStorage.setItem('admin', JSON.stringify(data.admin));
+    localStorage.setItem('adminToken', data.token);
+  };
+
+  const handleAdminLogout = () => {
+    setAdminSession(null);
+    localStorage.removeItem('admin');
+    localStorage.removeItem('adminToken');
+  };
+
   useEffect(() => {
     if (token) { fetchBudgetStatus(); fetchExpenses(); }
   }, [token]);
+
+  if (adminSession) {
+    return (
+      <AdminDashboard
+        admin={adminSession.admin}
+        token={adminSession.token}
+        onLogout={handleAdminLogout}
+      />
+    );
+  }
+
+  if (showAdminLogin) {
+    return (
+      <AdminLogin
+        onBack={() => setShowAdminLogin(false)}
+        onLogin={handleAdminLogin}
+      />
+    );
+  }
 
   // ── Auth screen ─────────────────────────────────────────────────────────────
   if (!user) {
@@ -469,6 +789,9 @@ function App() {
             </form>
             <button className="link-button" type="button" onClick={() => setIsLogin(!isLogin)}>
               {isLogin ? 'Need an account? Register' : 'Already have an account? Login'}
+            </button>
+            <button className="admin-link-button" type="button" onClick={() => setShowAdminLogin(true)}>
+              Admin login
             </button>
           </section>
         </div>
@@ -657,4 +980,3 @@ function App() {
 }
 
 export default App;
-
