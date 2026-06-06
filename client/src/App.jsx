@@ -1,13 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const categories = ['Food', 'Travel', 'Shopping', 'Bills', 'Other'];
 
+const getToday = () => new Date().toISOString().split('T')[0];
+
+const toInputDate = (date) => {
+  if (!date) return getToday();
+  return new Date(date).toISOString().split('T')[0];
+};
+
+const formatDate = (date) => {
+  if (!date) return 'No date';
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
 function App() {
   const [isLogin, setIsLogin] = useState(false);
   const [message, setMessage] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
 
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user');
@@ -26,18 +43,29 @@ function App() {
   const [expenses, setExpenses] = useState([]);
   const [expenseTitle, setExpenseTitle] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseDate, setExpenseDate] = useState(getToday());
   const [expenseCategory, setExpenseCategory] = useState('Food');
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const budget = budgetStatus?.budget || 0;
   const totalSpent = budgetStatus?.totalSpent || 0;
   const remaining = budgetStatus?.remaining || 0;
+  const hasBudget = budget > 0;
   const spentPercent = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
 
   const showMessage = (text) => {
     setMessage(text);
     setTimeout(() => setMessage(''), 2500);
+  };
+
+  const resetExpenseForm = () => {
+    setExpenseTitle('');
+    setExpenseAmount('');
+    setExpenseDate(getToday());
+    setExpenseCategory('Food');
+    setEditingExpenseId(null);
   };
 
   const fetchBudgetStatus = async () => {
@@ -106,25 +134,31 @@ function App() {
       }
 
       setBudgetAmount('');
-      showMessage('Budget saved');
+      setIsEditingBudget(false);
+      showMessage(hasBudget ? 'Budget updated' : 'Budget saved');
       fetchBudgetStatus();
     } finally {
       setIsBusy(false);
     }
   };
 
-  const handleAddExpense = async (e) => {
+  const handleSaveExpense = async (e) => {
     e.preventDefault();
     setIsBusy(true);
 
+    const url = editingExpenseId
+      ? `${API_URL}/expenses/${editingExpenseId}`
+      : `${API_URL}/expenses`;
+
     try {
-      const response = await fetch(`${API_URL}/expenses`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method: editingExpenseId ? 'PUT' : 'POST',
         headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: expenseTitle,
           amount: Number(expenseAmount),
-          category: expenseCategory
+          category: expenseCategory,
+          date: expenseDate
         })
       });
 
@@ -135,15 +169,22 @@ function App() {
         return;
       }
 
-      setExpenseTitle('');
-      setExpenseAmount('');
-      setExpenseCategory('Food');
-      showMessage('Expense added');
+      resetExpenseForm();
+      showMessage(editingExpenseId ? 'Expense updated' : 'Expense added');
       fetchExpenses();
       fetchBudgetStatus();
     } finally {
       setIsBusy(false);
     }
+  };
+
+  const handleEditExpense = (expense) => {
+    setEditingExpenseId(expense._id);
+    setExpenseTitle(expense.title);
+    setExpenseAmount(String(expense.amount));
+    setExpenseCategory(expense.category);
+    setExpenseDate(toInputDate(expense.date));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteExpense = async (id) => {
@@ -159,6 +200,10 @@ function App() {
       return;
     }
 
+    if (editingExpenseId === id) {
+      resetExpenseForm();
+    }
+
     showMessage('Expense deleted');
     fetchExpenses();
     fetchBudgetStatus();
@@ -171,6 +216,7 @@ function App() {
     setPassword('');
     setBudgetStatus(null);
     setExpenses([]);
+    resetExpenseForm();
     localStorage.removeItem('user');
     localStorage.removeItem('token');
   };
@@ -228,22 +274,51 @@ function App() {
 
           <section className="content-grid">
             <div className="panel">
-              <h2>Set Monthly Budget</h2>
-              <form onSubmit={handleSetBudget}>
-                <input
-                  type="number"
-                  placeholder="Budget amount"
-                  value={budgetAmount}
-                  onChange={(e) => setBudgetAmount(e.target.value)}
-                  required
-                />
-                <button type="submit" disabled={isBusy}>Save Budget</button>
-              </form>
+              <div className="panel-heading compact-heading">
+                <h2>{hasBudget ? 'Monthly Budget' : 'Set Monthly Budget'}</h2>
+                {hasBudget && !isEditingBudget && (
+                  <button
+                    className="small-button"
+                    type="button"
+                    onClick={() => {
+                      setBudgetAmount(String(budget));
+                      setIsEditingBudget(true);
+                    }}
+                  >
+                    Change
+                  </button>
+                )}
+              </div>
+
+              {hasBudget && !isEditingBudget ? (
+                <div className="budget-current">
+                  <p>Budget for this month is already set.</p>
+                  <strong>Rs {budget}</strong>
+                </div>
+              ) : (
+                <form onSubmit={handleSetBudget}>
+                  <input
+                    type="number"
+                    placeholder="Budget amount"
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(e.target.value)}
+                    required
+                  />
+                  <div className="form-actions">
+                    <button type="submit" disabled={isBusy}>{hasBudget ? 'Update Budget' : 'Save Budget'}</button>
+                    {hasBudget && (
+                      <button className="subtle-button" type="button" onClick={() => setIsEditingBudget(false)}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              )}
             </div>
 
             <div className="panel">
-              <h2>Add Expense</h2>
-              <form onSubmit={handleAddExpense}>
+              <h2>{editingExpenseId ? 'Edit Expense' : 'Add Expense'}</h2>
+              <form onSubmit={handleSaveExpense}>
                 <input
                   type="text"
                   placeholder="Title"
@@ -258,6 +333,12 @@ function App() {
                   onChange={(e) => setExpenseAmount(e.target.value)}
                   required
                 />
+                <input
+                  type="date"
+                  value={expenseDate}
+                  onChange={(e) => setExpenseDate(e.target.value)}
+                  required
+                />
                 <div className="chip-row">
                   {categories.map((category) => (
                     <button
@@ -270,7 +351,12 @@ function App() {
                     </button>
                   ))}
                 </div>
-                <button type="submit" disabled={isBusy}>Add Expense</button>
+                <div className="form-actions">
+                  <button type="submit" disabled={isBusy}>{editingExpenseId ? 'Save Changes' : 'Add Expense'}</button>
+                  {editingExpenseId && (
+                    <button className="subtle-button" type="button" onClick={resetExpenseForm}>Cancel Edit</button>
+                  )}
+                </div>
               </form>
             </div>
           </section>
@@ -292,10 +378,11 @@ function App() {
                   <div className="expense-item" key={expense._id}>
                     <div>
                       <strong>{expense.title}</strong>
-                      <p>{expense.category}</p>
+                      <p>{expense.category} • {formatDate(expense.date)}</p>
                     </div>
                     <div className="expense-actions">
                       <strong>Rs {expense.amount}</strong>
+                      <button className="edit-button" onClick={() => handleEditExpense(expense)}>Edit</button>
                       <button onClick={() => handleDeleteExpense(expense._id)}>Delete</button>
                     </div>
                   </div>
@@ -360,3 +447,4 @@ function App() {
 }
 
 export default App;
+
