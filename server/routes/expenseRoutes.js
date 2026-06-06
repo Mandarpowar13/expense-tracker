@@ -88,7 +88,7 @@ router.get('/summary/monthly', protect, async (req, res) => {
 // Returns: totalSpent, dayWise, categoryWise
 router.get('/analytics', protect, async (req, res) => {
   try {
-    console.log(req)
+    
     const now = new Date();
     const month = parseInt(req.query.month) || now.getMonth() + 1;
     const year  = parseInt(req.query.year)  || now.getFullYear();
@@ -102,7 +102,7 @@ router.get('/analytics', protect, async (req, res) => {
         date: { $gte: startOfMonth, $lt: startOfNextMonth }
       }
     };
-console.log(Expense)
+
     // 1. Total spent
     const totalResult = await Expense.aggregate([
       matchStage,

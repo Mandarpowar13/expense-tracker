@@ -81,7 +81,7 @@ function AnalyticsView({ token, authHeaders }) {
         fetch(`${API_URL}/expenses/analytics?month=${month}&year=${year}`, { headers: authHeaders }),
         fetch(`${API_URL}/budget/current?month=${month}&year=${year}`, { headers: authHeaders }),
       ]);
-      console.log(authHeaders)
+      
       setData(await analyticsRes.json());
       setBudgetData(await budgetRes.json());
     } finally {
