@@ -544,6 +544,7 @@ function App() {
                 <h2>Rs {remaining}</h2>
               </div>
             </section>
+            
 
             <section className="content-grid">
               <div className="panel">
@@ -616,17 +617,34 @@ function App() {
               ) : (
                 <div className="expense-list">
                   {expenses.map(expense => (
-                    <div className="expense-item" key={expense._id}>
-                      <div>
-                        <strong>{expense.title}</strong>
-                        <p>{expense.category} • {formatDate(expense.date)}</p>
-                      </div>
-                      <div className="expense-actions">
-                        <strong>Rs {expense.amount}</strong>
-                        <button className="edit-button" onClick={() => handleEditExpense(expense)}>Edit</button>
-                        <button onClick={() => handleDeleteExpense(expense._id)}>Delete</button>
-                      </div>
-                    </div>
+                  <div className="expense-item" key={expense._id}>
+  <div className="expense-amount">
+    ₹{expense.amount}
+  </div>
+
+  <div className="expense-details">
+    <strong>{expense.title}</strong>
+    <p>
+      {expense.category} • {formatDate(expense.date)}
+    </p>
+  </div>
+
+  <div className="expense-actions">
+    <button
+      className="edit-button"
+      onClick={() => handleEditExpense(expense)}
+    >
+      Edit
+    </button>
+
+    <button
+      className="delete-button"
+      onClick={() => handleDeleteExpense(expense._id)}
+    >
+      Delete
+    </button>
+  </div>
+</div>
                   ))}
                 </div>
               )}
