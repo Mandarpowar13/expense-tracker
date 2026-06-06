@@ -72,17 +72,16 @@ function App() {
       return;
     }
 
-    alert(data.message);
+   if (isLogin) {
+  setUser(data.user);
+  setToken(data.token);
 
-    if (isLogin) {
-      setUser(data.user);
-      setToken(data.token);
-
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('token', data.token);
-    } else {
-      setIsLogin(true);
-    }
+  localStorage.setItem('user', JSON.stringify(data.user));
+  localStorage.setItem('token', data.token);
+} else {
+  alert(data.message);
+  setIsLogin(true);
+}
   };
 
   const handleSetBudget = async (e) => {
