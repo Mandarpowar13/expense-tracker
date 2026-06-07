@@ -601,6 +601,9 @@ function App() {
   const [expenseDate, setExpenseDate]         = useState(getToday());
   const [expenseCategory, setExpenseCategory] = useState('Food');
   const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [animatedWidth, setAnimatedWidth] = useState(0);
+
+
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
@@ -609,6 +612,14 @@ function App() {
   const remaining   = budgetStatus?.remaining   || 0;
   const hasBudget   = budget > 0;
   const spentPercent = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    setAnimatedWidth(spentPercent);
+  }, 100);
+
+  return () => clearTimeout(timer);
+}, [spentPercent]);
 
   const showMessage = (text) => {
     setMessage(text);
@@ -847,7 +858,7 @@ function App() {
               </div>
               <div className="progress-wrap">
                 <div className="progress-bar">
-                  <span style={{ width: `${spentPercent}%` }} />
+                  <span style={{ width: `${animatedWidth}%` }} />
                 </div>
                 <p>{Math.round(spentPercent)}% spent</p>
               </div>
