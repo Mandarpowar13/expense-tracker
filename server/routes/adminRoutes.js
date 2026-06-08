@@ -18,6 +18,13 @@ const getMonthRange = () => {
   };
 };
 
+const debitMatch = (dateRange) => ({
+  $match: {
+    date: dateRange,
+    direction: { $ne: 'credit' }
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -52,6 +59,7 @@ router.get('/overview', protectAdmin, async (req, res) => {
   try {
     const { month, year, start, end } = getMonthRange();
     const startedAt = global.__serverStartedAt || Date.now();
+    const dateRange = { $gte: start, $lt: end };
 
     const [
       totalUsers,
@@ -59,6 +67,7 @@ router.get('/overview', protectAdmin, async (req, res) => {
       totalBudgets,
       totalSpendResult,
       monthSpendResult,
+      monthIncomeResult,
       recentUsers,
       recentExpenses,
       categoryWise,
@@ -68,9 +77,16 @@ router.get('/overview', protectAdmin, async (req, res) => {
       User.countDocuments(),
       Expense.countDocuments(),
       Budget.countDocuments(),
-      Expense.aggregate([{ $group: { _id: null, amount: { $sum: '$amount' } } }]),
       Expense.aggregate([
-        { $match: { date: { $gte: start, $lt: end } } },
+        { $match: { direction: { $ne: 'credit' } } },
+        { $group: { _id: null, amount: { $sum: '$amount' } } }
+      ]),
+      Expense.aggregate([
+        debitMatch(dateRange),
+        { $group: { _id: null, amount: { $sum: '$amount' } } }
+      ]),
+      Expense.aggregate([
+        { $match: { date: dateRange, direction: 'credit' } },
         { $group: { _id: null, amount: { $sum: '$amount' } } }
       ]),
       User.find().select('name email createdAt').sort({ createdAt: -1 }).limit(8),
@@ -79,25 +95,30 @@ router.get('/overview', protectAdmin, async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(10),
       Expense.aggregate([
-        { $match: { date: { $gte: start, $lt: end } } },
+        debitMatch(dateRange),
         { $group: { _id: '$category', totalSpent: { $sum: '$amount' }, count: { $sum: 1 } } },
         { $sort: { totalSpent: -1 } },
         { $project: { _id: 0, category: '$_id', totalSpent: 1, count: 1 } }
       ]),
       Expense.aggregate([
-        { $match: { createdAt: { $gte: start, $lt: end } } },
+        { $match: { createdAt: dateRange } },
         {
           $group: {
             _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
             count: { $sum: 1 },
-            totalSpent: { $sum: '$amount' }
+            debits: {
+              $sum: { $cond: [{ $eq: ['$direction', 'credit'] }, 0, '$amount'] }
+            },
+            credits: {
+              $sum: { $cond: [{ $eq: ['$direction', 'credit'] }, '$amount', 0] }
+            }
           }
         },
         { $sort: { _id: 1 } },
-        { $project: { _id: 0, date: '$_id', count: 1, totalSpent: 1 } }
+        { $project: { _id: 0, date: '$_id', count: 1, debits: 1, credits: 1, totalSpent: { $subtract: ['$debits', '$credits'] } } }
       ]),
       Expense.aggregate([
-        { $match: { date: { $gte: start, $lt: end } } },
+        debitMatch(dateRange),
         { $group: { _id: '$user', totalSpent: { $sum: '$amount' }, expenses: { $sum: 1 } } },
         { $sort: { totalSpent: -1 } },
         { $limit: 8 },
@@ -138,7 +159,8 @@ router.get('/overview', protectAdmin, async (req, res) => {
         expenses: totalExpenses,
         budgets: totalBudgets,
         allTimeSpend: totalSpendResult[0]?.amount || 0,
-        monthSpend: monthSpendResult[0]?.amount || 0
+        monthSpend: monthSpendResult[0]?.amount || 0,
+        monthIncome: monthIncomeResult[0]?.amount || 0
       },
       recentUsers,
       recentExpenses: recentExpenses.map((expense) => ({
@@ -146,6 +168,7 @@ router.get('/overview', protectAdmin, async (req, res) => {
         title: expense.title,
         amount: expense.amount,
         category: expense.category,
+        direction: expense.direction || 'debit',
         date: expense.date,
         createdAt: expense.createdAt,
         user: expense.user

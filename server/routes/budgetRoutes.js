@@ -47,17 +47,27 @@ router.get('/current', protect, async (req, res) => {
           date: { $gte: startOfMonth, $lt: startOfNextMonth }
         }
       },
-      { $group: { _id: null, totalSpent: { $sum: '$amount' } } }
+      {
+        $group: {
+          _id: { $ifNull: ['$direction', 'debit'] },
+          totalSpent: { $sum: '$amount' }
+        }
+      }
     ]);
 
-    const totalSpent   = result.length > 0 ? result[0].totalSpent : 0;
+    const debits   = result.find((row) => row._id !== 'credit')?.totalSpent || 0;
+    const credits  = result.find((row) => row._id === 'credit')?.totalSpent || 0;
+    const totalSpent = debits - credits;
     const budgetAmount = budget ? budget.amount : 0;
 
     res.json({
       month,
       year,
       budget: budgetAmount,
+      debits,
+      credits,
       totalSpent,
+      netFlow: credits - debits,
       remaining: budgetAmount - totalSpent
     });
   } catch (error) {

@@ -1,0 +1,11 @@
+title,amount,category,date,recipient,upiApp
+Groceries,500,Food,2024-06-08,Market,Google Pay
+Coffee,100,Food,2024-06-08,Cafe,PhonePe
+Electricity Bill,2000,Utilities,2024-06-05,Power Company,Bank Transfer
+Movie Tickets,800,Entertainment,2024-06-07,Cinema,Google Pay
+Restaurant,1200,Food,2024-06-08,Pizza Place,Paytm
+Gym Membership,500,Health,2024-06-01,Fitness Club,PhonePe
+Taxi Ride,150,Transportation,2024-06-08,Uber,Google Pay
+Medicine,300,Health,2024-06-08,Pharmacy,Cash
+Book,400,Education,2024-06-07,Online Store,PayPal
+Laundry,200,Personal,2024-06-08,Laundry Service,Paytm

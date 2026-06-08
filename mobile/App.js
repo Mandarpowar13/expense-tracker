@@ -12,6 +12,7 @@ import {
   View
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PDFImportMobile from './components/PDFImportMobile';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
 const categories = ['Food', 'Travel', 'Shopping', 'Bills', 'Other'];
@@ -21,7 +22,8 @@ const CATEGORY_COLORS = {
   Travel: '#3b82f6',
   Shopping: '#a855f7',
   Bills: '#ef4444',
-  Other: '#6b7280'
+  Other: '#6b7280',
+  Income: '#10b981'
 };
 
 const MONTH_NAMES = [
@@ -44,6 +46,7 @@ const formatShortDate = (dateStr) => {
 };
 
 const formatMoney = (amount) => `Rs ${Number(amount || 0).toLocaleString('en-IN')}`;
+const formatSignedMoney = (amount, direction) => `${direction === 'credit' ? '+' : '-'} Rs ${Number(amount || 0).toLocaleString('en-IN')}`;
 
 function Card({ children, style }) {
   return <View style={[styles.card, style]}>{children}</View>;
@@ -82,6 +85,8 @@ function AnalyticsView({ authHeaders }) {
   }, [month, year]);
 
   const budget = budgetData?.budget || 0;
+  const debits = data?.debits || 0;
+  const credits = data?.credits || 0;
   const totalSpent = data?.totalSpent || 0;
   const remaining = budget - totalSpent;
   const budgetPercent = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
@@ -129,7 +134,11 @@ function AnalyticsView({ authHeaders }) {
           <View style={styles.analyticsSummary}>
             <Card style={styles.analyticsCard}>
               <Text style={styles.analyticsCardLabel}>Total Spent</Text>
-              <Text style={styles.analyticsCardValue}>{formatMoney(totalSpent)}</Text>
+              <Text style={styles.analyticsCardValue}>{formatMoney(debits)}</Text>
+            </Card>
+            <Card style={styles.analyticsCard}>
+              <Text style={styles.analyticsCardLabel}>Total Income</Text>
+              <Text style={styles.analyticsCardValue}>{formatMoney(credits)}</Text>
             </Card>
             <Card style={styles.analyticsCard}>
               <Text style={styles.analyticsCardLabel}>Monthly Budget</Text>
@@ -263,13 +272,16 @@ export default function App() {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(getToday());
   const [expenseCategory, setExpenseCategory] = useState('Food');
+  const [expenseDirection, setExpenseDirection] = useState('debit');
   const [editingExpenseId, setEditingExpenseId] = useState(null);
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const budget = budgetStatus?.budget || 0;
+  const debits = budgetStatus?.debits || 0;
+  const credits = budgetStatus?.credits || 0;
   const totalSpent = budgetStatus?.totalSpent || 0;
-  const remaining = budgetStatus?.remaining || 0;
+  const remaining = budgetStatus?.remaining ?? (budget - totalSpent);
   const hasBudget = budget > 0;
   const spentPercent = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
 
@@ -278,6 +290,7 @@ export default function App() {
     setExpenseAmount('');
     setExpenseDate(getToday());
     setExpenseCategory('Food');
+    setExpenseDirection('debit');
     setEditingExpenseId(null);
   };
 
@@ -380,8 +393,9 @@ export default function App() {
         body: JSON.stringify({
           title: expenseTitle,
           amount: Number(expenseAmount),
-          category: expenseCategory,
-          date: expenseDate
+          category: expenseDirection === 'credit' ? 'Income' : expenseCategory,
+          date: expenseDate,
+          direction: expenseDirection
         })
       });
 
@@ -407,6 +421,7 @@ export default function App() {
     setExpenseTitle(expense.title);
     setExpenseAmount(String(expense.amount));
     setExpenseCategory(expense.category);
+    setExpenseDirection(expense.direction || 'debit');
     setExpenseDate(toInputDate(expense.date));
     setActiveTab('dashboard');
   };
@@ -564,6 +579,14 @@ export default function App() {
               </Card>
             </View>
 
+            <PDFImportMobile
+              token={token}
+              onUploadSuccess={() => {
+                fetchExpenses();
+                fetchBudgetStatus();
+              }}
+            />
+
             <Card>
               <View style={styles.panelHeading}>
                 <Text style={styles.panelTitle}>{hasBudget ? 'Monthly Budget' : 'Set Monthly Budget'}</Text>
@@ -607,19 +630,35 @@ export default function App() {
               <TextInput style={styles.input} placeholder="Date YYYY-MM-DD" value={expenseDate} onChangeText={setExpenseDate} />
 
               <View style={styles.chipRow}>
-                {categories.map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[styles.chip, expenseCategory === category && styles.activeChip]}
-                    onPress={() => setExpenseCategory(category)}
-                  >
-                    <Text style={[styles.chipText, expenseCategory === category && styles.activeChipText]}>{category}</Text>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity
+                  style={[styles.chip, expenseDirection === 'debit' && styles.activeChip]}
+                  onPress={() => setExpenseDirection('debit')}
+                >
+                  <Text style={[styles.chipText, expenseDirection === 'debit' && styles.activeChipText]}>Debit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.chip, expenseDirection === 'credit' && styles.activeChip]}
+                  onPress={() => setExpenseDirection('credit')}
+                >
+                  <Text style={[styles.chipText, expenseDirection === 'credit' && styles.activeChipText]}>Credit / Income</Text>
+                </TouchableOpacity>
               </View>
+              {expenseDirection === 'debit' && (
+                <View style={styles.chipRow}>
+                  {categories.map((category) => (
+                    <TouchableOpacity
+                      key={category}
+                      style={[styles.chip, expenseCategory === category && styles.activeChip]}
+                      onPress={() => setExpenseCategory(category)}
+                    >
+                      <Text style={[styles.chipText, expenseCategory === category && styles.activeChipText]}>{category}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
               <TouchableOpacity style={styles.primaryButton} onPress={handleSaveExpense} disabled={busy}>
-                <Text style={styles.primaryButtonText}>{editingExpenseId ? 'Save Changes' : 'Add Expense'}</Text>
+                <Text style={styles.primaryButtonText}>{editingExpenseId ? 'Save Changes' : (expenseDirection === 'credit' ? 'Add Credit' : 'Add Debit')}</Text>
               </TouchableOpacity>
               {editingExpenseId && (
                 <TouchableOpacity style={styles.subtleButton} onPress={resetExpenseForm}>
@@ -646,7 +685,7 @@ export default function App() {
                   scrollEnabled={false}
                   renderItem={({ item }) => (
                     <View style={styles.expenseItem}>
-                      <Text style={styles.expenseAmount}>{formatMoney(item.amount)}</Text>
+                      <Text style={styles.expenseAmount}>{formatSignedMoney(item.amount, item.direction)}</Text>
 
                       <View style={styles.expenseDetails}>
                         <Text style={styles.expenseTitle}>{item.title}</Text>
