@@ -12,7 +12,88 @@ const formatDate = (date) => new Date(date).toLocaleDateString('en-IN', {
   year: 'numeric'
 });
 
-const PDFUpload = ({ token, onUploadSuccess }) => {
+// Quick-launch tiles for the most common UPI apps. The browser will try the
+// app deep-link (intent URL) first; if the app is not installed the link
+// gracefully falls through to the app's homepage so the user can still
+// download the statement via the web.
+const UPI_APPS = [
+  {
+    id: 'gpay',
+    name: 'Google Pay',
+    short: 'GPay',
+    emoji: '💳',
+    color: '#4285F4',
+    bg: '#e8f0fe',
+    androidIntent: 'intent://#Intent;scheme=https;package=com.google.android.apps.nbu.paisa.user;S.browser_fallback_url=https%3A%2F%2Fpay.google.com%2Fhelp%2F6394331;end',
+    iosScheme: 'gpay://',
+    web: 'https://pay.google.com/help/6394331'
+  },
+  {
+    id: 'phonepe',
+    name: 'PhonePe',
+    short: 'PhonePe',
+    emoji: '📱',
+    color: '#5f259f',
+    bg: '#f3eaff',
+    androidIntent: 'intent://#Intent;scheme=https;package=com.phonepe.app;S.browser_fallback_url=https%3A%2F%2Fwww.phonepe.com%2Fstatement;end',
+    iosScheme: 'phonepe://',
+    web: 'https://www.phonepe.com/statement/'
+  },
+  {
+    id: 'paytm',
+    name: 'Paytm',
+    short: 'Paytm',
+    emoji: '💸',
+    color: '#00BAF2',
+    bg: '#e0f6fd',
+    androidIntent: 'intent://#Intent;scheme=paytmmp;package=net.one97.paytm;S.browser_fallback_url=https%3A%2F%2Fpaytm.com%2F;end',
+    iosScheme: 'paytmmp://',
+    web: 'https://paytm.com/'
+  },
+  {
+    id: 'bhim',
+    name: 'BHIM',
+    short: 'BHIM',
+    emoji: '🏦',
+    color: '#ff7700',
+    bg: '#fff0e6',
+    androidIntent: 'intent://#Intent;scheme=https;package=in.org.npci.upiapp;S.browser_fallback_url=https%3A%2F%2Fwww.npci.org.in%2F;end',
+    iosScheme: 'npciupi://',
+    web: 'https://www.npci.org.in/'
+  }
+];
+
+// Attempts to open the given UPI app via a custom-scheme deep link / intent
+// on mobile, or the app's homepage in the same tab on desktop (so the user
+// doesn't end up on a blank page when the browser can't resolve a custom
+// scheme like phonepe://). If the app is installed on Android the OS will
+// launch it; if not, the browser opens the homepage as a graceful fallback.
+const openUpiApp = (app) => {
+  if (typeof window === 'undefined') return;
+  const ua = navigator.userAgent || '';
+  const isAndroid = /android/i.test(ua);
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const isMobile = isAndroid || isIOS;
+
+  // On desktop browsers, custom schemes (phonepe://, gpay://, etc.) leave a
+  // blank tab. Always go straight to the app's web page instead.
+  if (!isMobile) {
+    window.location.href = app.web;
+    return;
+  }
+
+  // On mobile, use the platform-specific deep link so the OS can hand off
+  // to the installed app. The browser will only open the new tab if the
+  // deep link fails, so the user never sees a blank page.
+  const target = isAndroid && app.androidIntent ? app.androidIntent : (app.iosScheme || app.web);
+  try {
+    window.open(target, '_blank', 'noopener,noreferrer');
+  } catch (e) {
+    window.location.href = app.web;
+  }
+};
+
+const PDFUpload = ({ token, onUploadSuccess, onClose }) => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -181,11 +262,34 @@ const PDFUpload = ({ token, onUploadSuccess }) => {
 
   return (
     <div className="csv-upload-container">
-      <h3>Import UPI Statement</h3>
+      <div className="panel-heading">
+        <h3>Import UPI Statement</h3>
+        <span>PDF · Secure</span>
+      </div>
       <p className="subtitle">Securely import Google Pay, PhonePe, Paytm, or BHIM PDF statements</p>
 
       <div className="security-note">
         Your PDF is parsed in memory only. Nothing is saved until you confirm the preview.
+      </div>
+
+      <div className="app-launcher">
+        <p className="app-launcher-label">Need a statement? Open your UPI app to download one</p>
+        <div className="app-launcher-grid">
+          {UPI_APPS.map((app) => (
+            <button
+              key={app.id}
+              type="button"
+              className="app-launcher-tile"
+              style={{ '--app-color': app.color, '--app-bg': app.bg }}
+              onClick={() => openUpiApp(app)}
+              title={`Open ${app.name}`}
+            >
+              <span className="app-launcher-emoji" aria-hidden="true">{app.emoji}</span>
+              <span className="app-launcher-name">{app.short}</span>
+              <span className="app-launcher-open" aria-hidden="true">↗</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {!preview ? (

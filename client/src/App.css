@@ -34,8 +34,8 @@ button {
   overflow: hidden;
   border: none;
   border-radius: 12px;
-  background: #423f73;;
-  color: white;
+  background: #423f73;
+  color: #ffffff;
   font-weight: 700;
   cursor: pointer;
   transition: all .25s ease;
@@ -43,7 +43,7 @@ button {
 
 button:hover {
   transform: translateY(-2px);
-    background: #423f73;
+  background: #2f2c5a;
 }
 
 button::after {
@@ -55,6 +55,7 @@ button::after {
   height: 100%;
   background: rgba(255,255,255,.25);
   transform: skewX(-25deg);
+  pointer-events: none;
 }
 
 button:hover::after {
@@ -134,8 +135,14 @@ button:hover::after {
 }
 
 .auth-card {
-  padding: 32px;
+  padding: 36px 32px;
   align-self: center;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.08),
+    0 30px 80px rgba(15, 23, 42, 0.10);
 }
 
 .auth-card h2,
@@ -154,6 +161,39 @@ form {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 46px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  min-height: 34px;
+  padding: 0 12px;
+  background: transparent;
+  color: #423f73;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  background: #eef2ff;
+  color: #2f2c5a;
+  transform: translateY(-50%);
+  box-shadow: none;
 }
 
 input,
@@ -203,15 +243,35 @@ button:disabled {
 .secondary-button {
   width: 100%;
   margin-top: 14px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #eef2ff !important;
+  color: #4338ca !important;
+  border: 1px solid #c7d2fe !important;
+  font-weight: 800;
+  font-size: 14px;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.link-button:hover,
+.secondary-button:hover {
+  background: #4338ca !important;
+  color: #ffffff !important;
+  border-color: #4338ca !important;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(67, 56, 202, 0.18);
 }
 
 .secondary-button {
   width: auto;
   margin-top: 0;
-  background: #111827;
-  color: #ffffff;
+  background: #111827 !important;
+  color: #ffffff !important;
+  border: 1px solid #111827 !important;
+}
+
+.secondary-button:hover {
+  background: #1f2937 !important;
+  border-color: #1f2937 !important;
+  color: #ffffff !important;
 }
 
 .toast {
@@ -1359,6 +1419,217 @@ background: rgba(255, 255, 255, 0.92);
   .admin-list-row p,
   .admin-expense-row em {
     text-align: left;
+  }
+}
+
+/* ─── Import trigger button + modal ───────────────────────────────────────── */
+
+.import-trigger {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  margin: 0 0 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(31, 41, 55, 0.09);
+  text-align: left;
+  cursor: pointer;
+  transition: all .25s ease;
+  color: #0f172a;
+  min-height: 64px;
+}
+
+.import-trigger:hover {
+  transform: translateY(-3px);
+  border-color: #c7d2fe;
+  box-shadow:
+    0 18px 40px rgba(99, 102, 241, 0.18),
+    0 30px 70px rgba(99, 102, 241, 0.10);
+  background: #ffffff;
+}
+
+.import-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 22px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.import-trigger:hover .import-trigger-icon {
+  background: #4338ca;
+  color: #ffffff;
+}
+
+.import-trigger-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.import-trigger-text strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.import-trigger-text em {
+  font-style: normal;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.import-trigger-arrow {
+  font-size: 22px;
+  color: #94a3b8;
+  font-weight: 800;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.import-trigger:hover .import-trigger-arrow {
+  color: #4338ca;
+  transform: translateX(4px);
+}
+
+.import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: importOverlayIn 0.2s ease;
+}
+
+@keyframes importOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.import-modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.30),
+    0 60px 120px rgba(15, 23, 42, 0.20);
+  animation: importModalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes importModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.import-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.import-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.import-modal-close {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.import-modal-close:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.import-modal .csv-upload-container {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+  padding: 18px 24px 24px;
+  background: transparent;
+}
+
+.import-modal .csv-upload-container:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.import-modal .csv-upload-container .panel-heading h3 {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .import-trigger {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .import-trigger-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+
+  .import-trigger-text strong {
+    font-size: 14px;
+  }
+
+  .import-trigger-text em {
+    font-size: 12px;
+  }
+
+  .import-trigger-arrow {
+    display: none;
+  }
+
+  .import-overlay {
+    padding: 12px;
+  }
+
+  .import-modal {
+    max-height: calc(100vh - 24px);
   }
 }
 

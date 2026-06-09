@@ -29,6 +29,31 @@ const PieTooltip = ({ active, payload }) => active && payload?.length ? (
   <div className="chart-tooltip"><p className="ct-label">{payload[0].name}</p><p className="ct-value">Rs {payload[0].value.toLocaleString('en-IN')}</p><p className="ct-pct">{payload[0].payload.pct}%</p></div>
 ) : null;
 
+function PasswordInput({ value, onChange, placeholder, required, autoComplete }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="password-field">
+      <input
+        type={visible ? 'text' : 'password'}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required={required}
+        autoComplete={autoComplete}
+      />
+      <button
+        type="button"
+        className="password-toggle"
+        onClick={() => setVisible(v => !v)}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        tabIndex={-1}
+      >
+        {visible ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
+
 function AdminLogin({ onBack, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,8 +84,8 @@ function AdminLogin({ onBack, onLogin }) {
           <p>Use the server admin credentials configured in your environment.</p>
           {message && <div className="inline-alert">{message}</div>}
           <form onSubmit={handleSubmit}>
-            <input type="email" placeholder="Admin email" value={email} onChange={e => setEmail(e.target.value)} required />
-            <input type="password" placeholder="Admin password" value={password} onChange={e => setPassword(e.target.value)} required />
+            <input type="email" placeholder="Admin email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="username" />
+            <PasswordInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Admin password" required autoComplete="current-password" />
             <button type="submit" disabled={busy}>{busy ? 'Checking...' : 'Login as Admin'}</button>
           </form>
           <button className="link-button" type="button" onClick={onBack}>Back to user login</button>
@@ -158,6 +183,38 @@ function AdminDashboard({ admin, token, onLogout }) {
                       </div>
                     ))}
                 </div>
+              </div>
+            </section>
+            <section className="charts-row">
+              <div className="chart-panel">
+                <h3>Users</h3>
+                <p className="muted-copy" style={{ marginBottom: 12 }}>{overview.totals.users} total registered.</p>
+                <h3 style={{ marginTop: 6 }}>Recent Signups</h3>
+                <div className="admin-list">
+                  {(!overview.recentUsers || overview.recentUsers.length === 0) ? <p className="muted-copy">No users yet.</p> :
+                    overview.recentUsers.map(user => (
+                      <div className="admin-list-row" key={user._id}>
+                        <div>
+                          <strong>{user.name || 'Unnamed user'}</strong>
+                          <span>{user.email}</span>
+                        </div>
+                        <p>{user.createdAt ? formatDateTime(user.createdAt) : '—'}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              <div className="chart-panel">
+                <h3>Top Spenders (This Month)</h3>
+                {(!overview.topUsers || overview.topUsers.length === 0) ? <p className="muted-copy">No spending recorded this month.</p> :
+                  <div className="admin-expense-table">
+                    {overview.topUsers.map((entry, index) => (
+                      <div className="admin-expense-row" key={entry.userId || index}>
+                        <strong>{entry.name || entry.email || 'Unknown user'}</strong>
+                        <div><span>{entry.email || '—'}</span><p>{entry.expenses || 0} transaction{entry.expenses === 1 ? '' : 's'}</p></div>
+                        <em>{formatMoney(entry.totalSpent)}</em>
+                      </div>
+                    ))}
+                  </div>}
               </div>
             </section>
             <section className="chart-panel">
@@ -359,6 +416,7 @@ function App() {
   const [expenseDirection, setExpenseDirection] = useState('debit');
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [animatedWidth, setAnimatedWidth] = useState(0);
+  const [showImport, setShowImport] = useState(false);
 
   const authHeaders = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
@@ -509,9 +567,9 @@ function App() {
             <h2>{isLogin ? 'Welcome back' : 'Create account'}</h2>
             <p>{isLogin ? 'Login to continue to your dashboard.' : 'Start tracking your monthly budget.'}</p>
             <form onSubmit={handleSubmit}>
-              {!isLogin && <input type="text" placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />}
-              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-              <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+              {!isLogin && <input type="text" placeholder="Name" value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />}
+              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete={isLogin ? 'username' : 'email'} />
+              <PasswordInput value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required autoComplete={isLogin ? 'current-password' : 'new-password'} />
               <button type="submit" disabled={isBusy}>{isLogin ? 'Login' : 'Register'}</button>
             </form>
             <button className="link-button" type="button" onClick={() => setIsLogin(!isLogin)}>
@@ -566,7 +624,41 @@ function App() {
               <div className="summary-card alert-card"><p>Remaining</p><h2>Rs {Number(remaining).toLocaleString('en-IN')}</h2></div>
             </section>
 
-            <PDFUpload token={token} onUploadSuccess={() => { refreshAll(); showMessage('UPI transactions imported'); }} />
+            <button
+              className="import-trigger"
+              type="button"
+              onClick={() => setShowImport(true)}
+            >
+              <span className="import-trigger-icon" aria-hidden="true">⇪</span>
+              <span className="import-trigger-text">
+                <strong>Import UPI Statement</strong>
+                <em>Upload a Google Pay, PhonePe, Paytm or BHIM PDF</em>
+              </span>
+              <span className="import-trigger-arrow" aria-hidden="true">→</span>
+            </button>
+
+            {showImport && (
+              <div className="import-overlay" onClick={() => setShowImport(false)}>
+                <div className="import-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="import-modal-header">
+                    <h2>Import UPI Statement</h2>
+                    <button
+                      className="import-modal-close"
+                      type="button"
+                      onClick={() => setShowImport(false)}
+                      aria-label="Close import"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <PDFUpload
+                    token={token}
+                    onUploadSuccess={() => { refreshAll(); showMessage('UPI transactions imported'); }}
+                    onClose={() => setShowImport(false)}
+                  />
+                </div>
+              </div>
+            )}
 
             <section className="content-grid">
               <div className="panel">
