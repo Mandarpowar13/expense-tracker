@@ -619,3 +619,17 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.app-launcher-context {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-color, #4338ca);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid currentColor;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-top: 2px;
+  line-height: 1;
+}

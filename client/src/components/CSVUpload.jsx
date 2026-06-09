@@ -63,6 +63,14 @@ const UPI_APPS = [
   }
 ];
 
+// Tiny helper used by both the label text and the tile badge so the
+// "Open app" / "Open web" copy is consistent everywhere.
+const isMobileUA = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /android|iphone|ipad|ipod/i.test(ua);
+};
+
 // Attempts to open the given UPI app.
 //  - On desktop we never use a custom scheme (phonepe://, gpay://, etc.)
 //    because the browser can't resolve them — it would just open a blank
@@ -283,25 +291,7 @@ const PDFUpload = ({ token, onUploadSuccess, onClose }) => {
         Your PDF is parsed in memory only. Nothing is saved until you confirm the preview.
       </div>
 
-      <div className="app-launcher">
-        <p className="app-launcher-label">Need a statement? Open your UPI app to download one</p>
-        <div className="app-launcher-grid">
-          {UPI_APPS.map((app) => (
-            <button
-              key={app.id}
-              type="button"
-              className="app-launcher-tile"
-              style={{ '--app-color': app.color, '--app-bg': app.bg }}
-              onClick={() => openUpiApp(app)}
-              title={`Open ${app.name}`}
-            >
-              <span className="app-launcher-emoji" aria-hidden="true">{app.emoji}</span>
-              <span className="app-launcher-name">{app.short}</span>
-              <span className="app-launcher-open" aria-hidden="true">↗</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* App-launcher tiles removed per request. */}
 
       {!preview ? (
         <>
