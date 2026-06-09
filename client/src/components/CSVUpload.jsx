@@ -63,11 +63,16 @@ const UPI_APPS = [
   }
 ];
 
-// Attempts to open the given UPI app via a custom-scheme deep link / intent
-// on mobile, or the app's homepage in the same tab on desktop (so the user
-// doesn't end up on a blank page when the browser can't resolve a custom
-// scheme like phonepe://). If the app is installed on Android the OS will
-// launch it; if not, the browser opens the homepage as a graceful fallback.
+// Attempts to open the given UPI app.
+//  - On desktop we never use a custom scheme (phonepe://, gpay://, etc.)
+//    because the browser can't resolve them — it would just open a blank
+//    tab. Instead we navigate to the app's web page in the same tab.
+//  - On mobile we navigate in the same tab to the platform-specific deep
+//    link / intent. This lets the OS launch the installed app directly
+//    (no interstitial "Open in app?" prompt) and avoids leaving a
+//    stranded new tab. If the app isn't installed the intent's built-in
+//    browser_fallback_url (or the custom-scheme fallback) takes the user
+//    to the app's web page instead.
 const openUpiApp = (app) => {
   if (typeof window === 'undefined') return;
   const ua = navigator.userAgent || '';
@@ -75,19 +80,25 @@ const openUpiApp = (app) => {
   const isIOS = /iphone|ipad|ipod/i.test(ua);
   const isMobile = isAndroid || isIOS;
 
-  // On desktop browsers, custom schemes (phonepe://, gpay://, etc.) leave a
-  // blank tab. Always go straight to the app's web page instead.
+  // Desktop: go straight to the app's web page.
   if (!isMobile) {
     window.location.href = app.web;
     return;
   }
 
-  // On mobile, use the platform-specific deep link so the OS can hand off
-  // to the installed app. The browser will only open the new tab if the
-  // deep link fails, so the user never sees a blank page.
-  const target = isAndroid && app.androidIntent ? app.androidIntent : (app.iosScheme || app.web);
+  // Mobile: trigger the deep link in the same tab. The OS will see the
+  // intent:// / custom scheme and launch the installed app. If the app
+  // isn't installed, Android's browser_fallback_url or the universal-link
+  // fallback will load the web page in the same tab.
+  const target = isAndroid && app.androidIntent
+    ? app.androidIntent
+    : (app.iosScheme || app.web);
+
+  // Use location.assign (not window.open) so the OS can seamlessly take
+  // over the navigation. window.open would spawn a new tab that the OS
+  // may not be able to redirect to the app.
   try {
-    window.open(target, '_blank', 'noopener,noreferrer');
+    window.location.assign(target);
   } catch (e) {
     window.location.href = app.web;
   }
